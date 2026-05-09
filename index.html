@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - vuducvinh</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .btn-approve { background: #28a745; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 5px; }
+        .btn-del { background: #dc3545; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 5px; }
+        input { padding: 8px; margin: 5px 0; width: 200px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>QUẢN TRỊ VIÊN</h2>
+    
+    <h3>Duyệt Nạp Tiền</h3>
+    <table>
+        <thead><tr><th>User</th><th>Số tiền</th><th>Nội dung</th><th>Hành động</th></tr></thead>
+        <tbody id="topup-list"></tbody>
+    </table>
+
+    <hr>
+
+    <h3>Thêm Sản Phẩm</h3>
+    <input type="text" id="p-name" placeholder="Tên (Proxy ngày...)">
+    <input type="number" id="p-price" placeholder="Giá">
+    <button onclick="addProduct()">Thêm</button>
+
+    <h3>Danh sách sản phẩm</h3>
+    <table id="product-table"></table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAitqDDv3eWnc-m3kEBIr-tmNByzmrlVWQ",
+    authDomain: "advinh-203ab.firebaseapp.com",
+    databaseURL: "https://advinh-203ab-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "advinh-203ab",
+    storageBucket: "advinh-203ab.appspot.com",
+    messagingSenderId: "132835424434",
+    appId: "1:132835424434:web:917c2e63ed86467503f1ab"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const rtdb = getDatabase(app);
+
+onSnapshot(collection(db, "topups"), (snap) => {
+    let html = "";
+    snap.forEach(d => {
+        const t = d.data();
+        if(t.status === "pending") {
+            html += `<tr><td>${t.username}</td><td>${t.amount}</td><td>${t.memo}</td>
+            <td><button class="btn-approve" onclick="approve('${d.id}','${t.username}',${t.amount})">Duyệt</button>
+            <button class="btn-del" onclick="cancel('${d.id}')">Hủy</button></td></tr>`;
+        }
+    });
+    document.getElementById("topup-list").innerHTML = html;
+});
+
+window.approve = async (id, user, amt) => {
+    const userRef = ref(rtdb, 'users/' + user + '/balance');
+    const snap = await get(userRef);
+    let newBal = (snap.val() || 0) + amt;
+    await set(userRef, newBal);
+    await updateDoc(doc(db, "topups", id), { status: "success" });
+    alert("Thành công");
+};
+
+window.cancel = async (id) => { await deleteDoc(doc(db, "topups", id)); };
+
+window.addProduct = async () => {
+    const name = document.getElementById("p-name").value;
+    const price = document.getElementById("p-price").value;
+    if(name && price) await addDoc(collection(db, "products"), { name, price: Number(price) });
+};
+
+onSnapshot(collection(db, "products"), (snap) => {
+    let html = "<tr><th>Tên</th><th>Giá</th><th>Xóa</th></tr>";
+    snap.forEach(d => {
+        html += `<tr><td>${d.data().name}</td><td>${d.data().price}</td>
+        <td><button onclick="delProd('${d.id}')">Xóa</button></td></tr>`;
+    });
+    document.getElementById("product-table").innerHTML = html;
+});
+
+window.delProd = async (id) => { await deleteDoc(doc(db, "products", id)); };
+</script>
+</body>
+</html>
